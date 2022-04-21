@@ -40,7 +40,7 @@ class Maker
   def create_iam_role(assume_role_policy_document)
     @iam_client.create_role(role_name: @iam_role_name, assume_role_policy_document: assume_role_policy_document)
     policy_files = Dir[File.join(@policy_folder, "*.json")]
-    @log.info(policy_files)
+    @log.info("policy files: #{policy_files} count: #{policy_files.length}")
     policy_files.each do |f|
       @log.info("Policy file: #{f}")
       policy_document_json = File.read(f)
