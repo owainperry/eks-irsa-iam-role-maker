@@ -1,0 +1,5 @@
+skaffold.yaml
+test.sh
+todo.txt
+k8s/
+.github/

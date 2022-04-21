@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: test-cplane-reader
+  namespace: clusters
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: clusters
+  name: test-cplane-reader
+rules:
+- apiGroups: ["controlplane.cluster.x-k8s.io"] 
+  resources: ["awsmanagedcontrolplanes"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: test-cplane-reader
+  namespace: clusters
+subjects:
+- kind: ServiceAccount
+  name: test-cplane-reader
+  namespace: clusters
+roleRef:
+  kind: Role 
+  name: test-cplane-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: policy-config
+  namespace: clusters
+data:
+  test123.json: | 
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "FluxDecrypt",
+                "Effect": "Allow",
+                "Action": [
+                    "kms:DescribeKey",
+                    "kms:Decrypt"
+                ],
+                "Resource": "arn:aws:kms:eu-east-2:123412341234:key/a354df3e-630e-4d14-9d39-d516bdf93827"
+            }
+        ]
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ruby
+spec:
+  selector:
+    matchLabels:
+      app: ruby
+  template:
+    metadata:
+      labels:
+        app: ruby
+    spec:
+      serviceAccount: test-cplane-reader
+      serviceAccountName: test-cplane-reader
+      containers:
+        - name: ruby
+          image: iam-role-maker
+          env:
+          - name: NAME
+            value: "penv1"
+          - name: SA_NAMESPACE
+            value: "flux-system"
+          - name: SA_NAME
+            value: "kustomize-controller"
+          - name: IAM_ROLE_NAME_PREFIX
+            value: "kustomize-controller-service-account"
+          volumeMounts:
+            - name: files
+              mountPath: "/var/policy"
+              readOnly: true  
+            - name: credentials
+              mountPath: "/root/.aws"
+              readOnly: true           
+      volumes:
+      - name: files
+        configMap:
+          name: 'policy-config'
+      - name: credentials
+        secret:
+          secretName: 'capa-manager-bootstrap-credentials'
